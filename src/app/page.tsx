@@ -107,6 +107,7 @@ export default function Home() {
             {result.grading && <GradingSummary grading={result.grading} />}
 
             <div className="grid lg:grid-cols-5 gap-6 mt-6">
+              {/* Questions panel */}
               <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-5 max-h-[80vh] overflow-y-auto">
                 <QuestionList
                   questions={result.questions}
@@ -118,6 +119,7 @@ export default function Home() {
                 />
               </div>
 
+              {/* Answer sheet viewer */}
               <div className="lg:col-span-3 bg-white rounded-xl shadow-sm p-5 max-h-[80vh] overflow-y-auto">
                 <h3 className="font-bold mb-3">
                   Answer Sheet{" "}
@@ -127,7 +129,10 @@ export default function Home() {
                     </span>
                   )}
                 </h3>
-                <PdfViewer file={aFile} regions={selectedAnswer?.regions || []} />
+                <PdfViewer
+                  file={aFile}
+                  regions={selectedAnswer?.regions || []}
+                />
               </div>
             </div>
           </>

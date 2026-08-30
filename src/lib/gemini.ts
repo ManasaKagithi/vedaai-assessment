@@ -1,8 +1,20 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+﻿import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-// Convert File to base64 for Gemini
+async function callWithRetry(fn: () => Promise<any>, retries = 3): Promise<any> {
+  try {
+    return await fn();
+  } catch (err: any) {
+    if (retries > 0 && err.message && (err.message.includes("503") || err.message.includes("Service Unavailable"))) {
+      console.log("Google servers busy (503), retrying in 2s...");
+      await new Promise(r => setTimeout(r, 2000));
+      return callWithRetry(fn, retries - 1);
+    }
+    throw err;
+  }
+}
+
 export async function fileToGenerativePart(file: File) {
   const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
   return {
@@ -29,14 +41,15 @@ Return STRICT JSON only, no markdown:
 {
   "questions": [
     { "number": "1", "subPart": null, "text": "Define thermodynamics.", "marks": 2, "pageNumber": 1 },
-    { "number": "11", "subPart": "a", "text": "...", "marks": 5, "pageNumber": 3 },
-    { "number": "11", "subPart": "b", "text": "...", "marks": 5, "pageNumber": 3 }
+    { "number": "11", "subPart": "a", "text": "...", "marks": 5, "pageNumber": 3 }
   ]
 }`;
 
-  const result = await model.generateContent([prompt, imagePart]);
-  const text = result.response.text().replace(/```json|```/g, "").trim();
-  return JSON.parse(text);
+  return callWithRetry(async () => {
+    const result = await model.generateContent([prompt, imagePart]);
+    const text = result.response.text().replace(/```json|```/g, "").trim();
+    return JSON.parse(text);
+  });
 }
 
 export async function extractAnswers(file: File, questions: any[]) {
@@ -56,8 +69,7 @@ Your tasks:
 2. Match each answer to a question from the list above.
 3. If an answer doesn't match any question, mark it as unmapped.
 4. For each answer, provide the EXACT bounding box of the answer region as percentages of the page (0-100).
-5. If an answer spans multiple pages, provide multiple regions (one per page).
-6. Use the student's own labels (e.g. "Ans 11(a)", "Q3", "Answer to 5") to identify which question they are answering.
+5. If an answer spans multiple pages, provide multiple regions.
 
 Return STRICT JSON only, no markdown:
 {
@@ -79,19 +91,17 @@ Return STRICT JSON only, no markdown:
 }
 
 Important:
-- questionId format: "number" or "number-subPart" (e.g. "11", "11-a", "3-b")
-- Coordinates are percentages (0-100) of page width/height
-- OCR the handwriting as accurately as possible`;
+- questionId format: "number" or "number-subPart" (e.g. "11", "11-a")
+- Coordinates are percentages (0-100) of page width/height`;
 
-  const result = await model.generateContent([prompt, imagePart]);
-  const text = result.response.text().replace(/```json|```/g, "").trim();
-  return JSON.parse(text);
+  return callWithRetry(async () => {
+    const result = await model.generateContent([prompt, imagePart]);
+    const text = result.response.text().replace(/```json|```/g, "").trim();
+    return JSON.parse(text);
+  });
 }
 
-export async function gradeAssessment(
-  questions: any[],
-  answers: any[]
-) {
+export async function gradeAssessment(questions: any[], answers: any[]) {
   const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
 
   const pairs = questions.map((q) => {
@@ -105,10 +115,19 @@ export async function gradeAssessment(
     };
   });
 
+  const totalMarks = pairs.reduce((sum, p) => sum + p.maxMarks, 0);
+
   const prompt = `You are a fair, strict teacher grading a student's exam.
 
-For each question below, award marks based on correctness, completeness, and clarity.
-If the student didn't answer (studentAnswer is null), award 0 and mark as "unanswered".
+TOTAL MARKS AVAILABLE: ${totalMarks}
+
+CRITICAL RULES:
+1. Be CONSISTENT - the total must equal ${totalMarks} marks.
+2. If studentAnswer is null or empty, mark as "unanswered" and award 0.
+3. Do NOT contradict yourself - if a question is unanswered, don't say it was answered.
+4. Only mention specific question numbers you are certain about.
+
+For each question, award marks based on correctness, completeness, and clarity.
 
 Return STRICT JSON only:
 {
@@ -120,15 +139,17 @@ Return STRICT JSON only:
       "feedback": "Good definition but missing the second law."
     }
   ],
-  "overallFeedback": "Overall the student shows strong understanding of concepts but needs to work on..."
+  "overallFeedback": "The student scored X out of ${totalMarks} marks. [Accurate summary]"
 }
 
-Questions and answers:
-${JSON.stringify(pairs, null, 2)}
+Status must be: "correct", "partial", "incorrect", or "unanswered"
 
-Status must be one of: "correct", "partial", "incorrect", "unanswered"`;
+Questions to grade:
+${JSON.stringify(pairs, null, 2)}`;
 
-  const result = await model.generateContent([prompt]);
-  const text = result.response.text().replace(/```json|```/g, "").trim();
-  return JSON.parse(text);
+  return callWithRetry(async () => {
+    const result = await model.generateContent([prompt]);
+    const text = result.response.text().replace(/```json|```/g, "").trim();
+    return JSON.parse(text);
+  });
 }

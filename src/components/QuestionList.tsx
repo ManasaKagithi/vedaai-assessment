@@ -39,6 +39,7 @@ export default function QuestionList({
       <h3 className="font-bold mb-3">Questions ({questions.length})</h3>
       <div className="space-y-2">
         {questions.map((q) => {
+          const ans = answers.find((a) => a.questionId === q.id);
           const grade = grading?.grades.find((g) => g.questionId === q.id);
           const status = statusOf(q.id);
           return (

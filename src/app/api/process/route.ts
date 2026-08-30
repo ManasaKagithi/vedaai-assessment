@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractQuestions, extractAnswers, gradeAssessment } from "@/lib/gemini";
 
-export const maxDuration = 60;
+export const maxDuration = 60; // Vercel hobby limit
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,12 +14,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Both files required" }, { status: 400 });
     }
 
+    // Step 1: Extract questions
     const qData = await extractQuestions(questionFile);
-    const questions = qData.questions.map((q: any) => ({
+    const questions = qData.questions.map((q: any, i: number) => ({
       ...q,
       id: `${q.number}${q.subPart ? `-${q.subPart}` : ""}`,
     }));
 
+    // Step 2: Extract answers
     const aData = await extractAnswers(answerFile, questions);
     const answers = (aData.answers || []).map((a: any, i: number) => ({
       ...a,
@@ -30,6 +32,7 @@ export async function POST(req: NextRequest) {
       id: `u-${i}`,
     }));
 
+    // Step 3: Optional grading
     let grading;
     if (enableGrading) {
       const gData = await gradeAssessment(questions, answers);
@@ -50,7 +53,7 @@ export async function POST(req: NextRequest) {
       answers,
       unmappedAnswers,
       grading,
-      questionPageCount: 1,
+      questionPageCount: 1, // Gemini handles multi-page internally
       answerPageCount: 1,
     });
   } catch (err: any) {
