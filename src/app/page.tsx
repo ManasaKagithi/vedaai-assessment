@@ -4,7 +4,7 @@ import FileUpload from "@/components/FileUpload";
 import PdfViewer from "@/components/PdfViewer";
 import QuestionList from "@/components/QuestionList";
 import GradingSummary from "@/components/GradingSummary";
-import { ExtractionResult } from "@/types";
+import { ExtractionResult } from "@/app/types";
 import { Loader2, Sparkles } from "lucide-react";
 
 export default function Home() {
