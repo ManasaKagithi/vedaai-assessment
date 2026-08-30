@@ -1,5 +1,5 @@
 "use client";
-import { Question, Answer, UnmappedAnswer, GradingResult } from "@/app/types";
+import { Question, Answer, UnmappedAnswer, GradingResult } from "@/types";
 import { CheckCircle2, XCircle, AlertCircle, MinusCircle, HelpCircle } from "lucide-react";
 import clsx from "clsx";
 

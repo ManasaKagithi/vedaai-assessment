@@ -1,4 +1,4 @@
-import { GradingResult } from "@/app/types";
+import { GradingResult } from "@/types";
 import { Award } from "lucide-react";
 
 export default function GradingSummary({ grading }: { grading: GradingResult }) {
